@@ -21,11 +21,11 @@
   </style>
         <script>
             function nastavitJas() {
-                let _jas = document.querySelector("#jas").value;
+                let _jas = document.querySelector("#jas_slider").value;
 
                 console.log("Jas: " + _jas);
 
-                let url = "/cfg?jas=" + _jas;
+                let url = "/cfg_set?jas=" + _jas;
 
                 console.log("Načítám URL: " + url);
                 fetch(url)
@@ -37,13 +37,32 @@
                     })
                     .catch(error => console.error(error));
             }
+            window.onload = function(e) {
+              var jas_slider = document.getElementById("jas_slider");
+              var jas_text = document.getElementById("jas_text");
+
+              jas_slider.oninput = function() {
+                jas_text.value = this.value;
+              }
+              jas_text.oninput = function() {
+                jas_slider.value = this.value;
+              }
+            fetch("/cfg_get?co=jas")
+              .then(response => response.text())
+              .then(data => {
+                jas_slider.value = data;
+                jas_text.value = data;
+              })
+              .catch(error => console.error(error));
+            }
         </script>
 </head>
 <body>
   <div class="vycentruj">
     <h1>Chytrá mapa ČR</h1>
     <p>
-      <b>Jas:</b>&nbsp;<input type="range" id="jas" name="jas" min="0" max="100" value="5"/>
+      <b>Jas:</b>&nbsp;<input id="jas_text" name="jas_text" size="3" min="0" max="100" value="5"/>
+      <input type="range" id="jas_slider" name="jas_slider" min="0" max="100" value="5"/>
       <input type="button" value="nastavit" onclick="javascript:nastavitJas()"/>
     </p>
     <p id="odpoved"></p>

@@ -120,18 +120,26 @@ void handle_single() {
   server.send(200, "text/plain", "OK");
 }
 
-void handle_cfg() {
+void handle_cfg_set() {
   if (server.hasArg("jas")) {
     jas = server.arg("jas").toInt();
     pixely.setBrightness(jas);
     pixely.show();
   }
-  if (server.hasArg("redirect") && server.arg("redirect").toInt() == 1) {
-    server.sendHeader("Location", "/");
-    server.send(303, "text/plain", "");
-  } else {
-    server.send(200, "text/plain", "OK");
+  server.send(200, "text/plain", "OK");
+}
+
+void handle_cfg_get() {
+  if (!server.hasArg("co")) {
+    server.send(200, "text/plain", "CHYBA\nChybi co");
   }
+  String co = server.arg("co");
+  if (co == "jas") {
+    server.send(200, "text/plain", String(jas));
+  } else {
+    server.send(200, "text/plain", "CHYBA\nNeznam parametr " + co);
+  }
+  server.send(200, "text/plain", "OK");
 }
 
 void handle_off() {
@@ -169,7 +177,8 @@ void setup() {
   // Pro HTTP pozadavku / zavolame funkci httpDotaz
   server.on("/json", handle_json);
   server.on("/off", handle_off);
-  server.on("/cfg", handle_cfg);
+  server.on("/cfg_set", handle_cfg_set);
+  server.on("/cfg_get", handle_cfg_get);
   server.on("/single", handle_single);
 
   // Aktivujeme server
