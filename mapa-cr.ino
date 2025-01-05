@@ -3,6 +3,8 @@
 #include <Adafruit_NeoPixel.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
+#include <FS.h>
+#include "SPIFFS.h"
 
 #include "config.h"
 
@@ -138,31 +140,6 @@ void handle_off() {
     pixely.show();  
 }
 
-void handle_root() {
-  String os("<!DOCTYPE html><html><head><title>Chytrá mapa</title></head><body>\n");
-  struct tm tm;
-
-  if (!getLocalTime(&tm, 100)) {
-    os += "<p>cas: neznamy</p>";
-  } else {
-    os += "<p>cas: ";
-    os += tm.tm_hour;
-    os += ":";
-    os += tm.tm_min;
-    os += "</p>";
-  }
-
-  os += "<form action=\"/cfg\"><input type=\"range\" name=\"jas\" min=\"0\" max=\"100\" value=\"";
-  
-  os += jas;
-  
-  os += "\"/><input type=\"hidden\" name=\"redirect\" value=\"1\"/><input type=\"submit\" value=\"nastavit\"/></form>\n";
-
-  os += "</body></html>\n";
-
-  server.send(200, "text/html", os);
-}
-
 // Hlavni funkce setup se zpracuje hned po startu cipu ESP32
 void setup() {
   // Nastartujeme serivou linku rychlosti 115200 b/s
@@ -185,12 +162,16 @@ void setup() {
 
   configTzTime(MY_TZ, MY_NTP_SERVER, "", "");
 
+  SPIFFS.begin();
+
+  server.serveStatic("/", SPIFFS, "/index.html");
+
   // Pro HTTP pozadavku / zavolame funkci httpDotaz
   server.on("/json", handle_json);
   server.on("/off", handle_off);
   server.on("/cfg", handle_cfg);
   server.on("/single", handle_single);
-  server.on("/", handle_root);
+
   // Aktivujeme server
   server.begin();
   // Nakonfigurujeme adresovatelene LED do vychozi zhasnute pozice
