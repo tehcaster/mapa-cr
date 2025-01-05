@@ -3,13 +3,51 @@
 <head>
   <meta charset="utf-8">
   <title>Chytrá mapa</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2&display=swap" rel="stylesheet">
+  <style>
+      body, select, input{
+          font-family: "Baloo Bhaijaan 2", cursive;
+      }
+      .vycentruj {
+        margin: auto;
+        width: 600px;
+        padding: 10px;
+      }
+      #odpoved{
+          color: gray;
+      }
+  </style>
+        <script>
+            function nastavitJas() {
+                let _jas = document.querySelector("#jas").value;
+
+                console.log("Jas: " + _jas);
+
+                let url = "/cfg?jas=" + _jas;
+
+                console.log("Načítám URL: " + url);
+                fetch(url)
+                    .then(response => response.text())
+                    .then(data => {
+                        let zprava = "<b>Odpověď mapy:</b> " + data
+                        document.querySelector("#odpoved").innerHTML = zprava; 
+
+                    })
+                    .catch(error => console.error(error));
+            }
+        </script>
 </head>
 <body>
-<form action="/cfg">
-  <input type="range" name="jas" min="0" max="100" value="5"/>
-  <input type="hidden" name="redirect" value="1"/>
-  <input type="submit" value="nastavit"/>
-</form>
+  <div class="vycentruj">
+    <h1>Chytrá mapa ČR</h1>
+    <p>
+      <b>Jas:</b>&nbsp;<input type="range" id="jas" name="jas" min="0" max="100" value="5"/>
+      <input type="button" value="nastavit" onclick="javascript:nastavitJas()"/>
+    </p>
+    <p id="odpoved"></p>
+  </div>
 </body>
 </html>
 
