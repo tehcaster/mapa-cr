@@ -1,0 +1,4 @@
+// Nazev a heslo Wi-Fi
+const char *ssid = "Nazev 2.4GHz Wi-Fi site";
+const char *heslo = "Heslo Wi-Fi site";
+

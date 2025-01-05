@@ -4,9 +4,7 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 
-// Nazev a heslo Wi-Fi
-const char *ssid = "Nazev 2.4GHz Wi-Fi site";
-const char *heslo = "Heslo Wi-Fi site";
+#include "config.h"
 
 // Objekt pro ovladani adresovatelnych RGB LED
 // Je jich 72 a jsou v serii pripojene na GPIO pin 25
