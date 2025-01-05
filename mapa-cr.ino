@@ -31,6 +31,7 @@ uint32_t t = 0;             // Refreshovaci timestamp
 uint32_t delay10 = 600000;  // Prodleva mezi aktualizaci dat, 10 minut
 uint8_t jas = 5;            // Vychozi jas
 int current_mode = 0;
+bool gamma_cor = true;
 
 // Initialize array with number of districts readed from TMEP, 
 // which we will later populate with values from JSON
@@ -47,6 +48,20 @@ int TMEPDistrictPosition[LEDS_COUNT] = {
  44, 53, 43
 };
 
+static uint32_t colRGB(int r, int g, int b) {
+  uint32_t ret = pixely.Color(r, g, b);
+  if (gamma_cor)
+    ret = pixely.gamma32(ret);
+  return ret;
+}
+
+static uint32_t colH(int h) {
+  uint32_t ret = pixely.ColorHSV(h << 8);
+  if (gamma_cor)
+    ret = pixely.gamma32(ret);
+  return ret;
+}
+
 void process_radar() {
   pixely.clear();
   JsonArray mesta = doc["seznam"].as<JsonArray>();
@@ -56,7 +71,7 @@ void process_radar() {
     int g = mesto["g"];
     int b = mesto["b"];
     //if (log) Serial.printf("Rozsvecuji mesto %d barvou R=%d G=%d B=%d\r\n", id, r, g, b);
-    pixely.setPixelColor(id, pixely.Color(r, g, b));
+    pixely.setPixelColor(id, colRGB(r, g, b));
   }
   pixely.show();
 }
@@ -86,7 +101,7 @@ void process_temp() {
     //color = map(TMEPDistrictTemperatures[TMEPDistrictPosition[LED]], minTemp, maxTemp, 170, 0);
     // Get color for correct district LED - fixed color layout (min -15; max 40 °C)
     color = map(TMEPDistrictTemperatures[TMEPDistrictPosition[LED]], -15, 40, 170, 0);
-    pixely.setPixelColor(LED, pixely.ColorHSV(color * 256)); // Assuming Wheel function is generating HSV colors
+    pixely.setPixelColor(LED, colH(color)); // Assuming Wheel function is generating HSV colors
   }
 
   pixely.show();
@@ -155,13 +170,27 @@ void handle_single() {
     server.send(200, "text/plain", "CHYBA\nChybi id diody");
     return;
   }
+  if (id >= LEDS_COUNT) {
+    server.send(200, "text/plain", "CHYBA\nSpatne id diody");
+    return;
+  }
+
   if (server.hasArg("r"))
     r = server.arg("r").toInt();
   if (server.hasArg("g"))
     g = server.arg("g").toInt();
   if (server.hasArg("b"))
     b = server.arg("b").toInt();
-  pixely.setPixelColor(id, pixely.Color(r, g, b));
+
+  uint32_t color = colRGB(r, g, b);
+
+  if (id < 0) {
+    for (int i = 0; i < LEDS_COUNT; i++) {
+      pixely.setPixelColor(i, color);
+    }
+  } else {
+    pixely.setPixelColor(id, color);
+  }
   pixely.show();
   server.send(200, "text/plain", "OK");
 }
@@ -181,6 +210,9 @@ void handle_cfg_set() {
     current_mode = want_mode;
     t = 0;
   }
+  if (server.hasArg("gamma")) {
+    gamma_cor = server.arg("gamma") == "true";
+  }
   server.send(200, "text/plain", "OK");
 }
 
@@ -191,6 +223,8 @@ void handle_cfg_get() {
   String co = server.arg("co");
   if (co == "jas") {
     server.send(200, "text/plain", String(jas));
+  } if (co == "gamma") {
+    server.send(200, "text/plain", gamma_cor ? "true" : "false");
   } else {
     server.send(200, "text/plain", "CHYBA\nNeznam parametr " + co);
   }

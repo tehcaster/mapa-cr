@@ -20,13 +20,7 @@
       }
   </style>
         <script>
-            function nastavitJas() {
-                let _jas = document.querySelector("#jas_slider").value;
-
-                console.log("Jas: " + _jas);
-
-                let url = "/cfg_set?jas=" + _jas;
-
+            function doFetch(url) {
                 console.log("Načítám URL: " + url);
                 fetch(url)
                     .then(response => response.text())
@@ -36,6 +30,26 @@
 
                     })
                     .catch(error => console.error(error));
+            }
+
+            function nastavitJas() {
+                let _jas = document.querySelector("#jas_slider").value;
+
+                console.log("Jas: " + _jas);
+
+                let url = "/cfg_set?jas=" + _jas;
+
+                doFetch(url);
+            }
+
+            function nastavitGamma() {
+                let _gamma = document.querySelector("#gamma").checked;
+
+                console.log("Gamma: " + _gamma);
+
+                let url = "/cfg_set?gamma=" + _gamma;
+
+                doFetch(url);
             }
 
             function nastavitRezim() {
@@ -45,20 +59,28 @@
 
                 let url = "/cfg_set?rezim=" + _rezim;
 
-                console.log("Načítám URL: " + url);
-                fetch(url)
-                    .then(response => response.text())
-                    .then(data => {
-                        let zprava = "<b>Odpověď mapy:</b> " + data
-                        document.querySelector("#odpoved").innerHTML = zprava; 
+                doFetch(url);
+            }
 
-                    })
-                    .catch(error => console.error(error));
+            function nastavitLED() {
+                let _barva = document.querySelector("#barva").value;
+                let _led = document.querySelector("#led").value;
+
+                console.log("Led: " + _led);
+                console.log("Barva: " + _barva);
+
+                let url = "/single?id=" + _led;
+                url += "&r=" + Number("0x" + _barva.substring(1, 3));
+                url += "&g=" + Number("0x" + _barva.substring(3, 5));
+                url += "&b=" + Number("0x" + _barva.substring(5));
+
+                doFetch(url);
             }
 
             window.onload = function(e) {
               var jas_slider = document.getElementById("jas_slider");
               var jas_text = document.getElementById("jas_text");
+              var gamma = document.getElementById("gamma");
 
               jas_slider.oninput = function() {
                 jas_text.value = this.value;
@@ -66,13 +88,21 @@
               jas_text.oninput = function() {
                 jas_slider.value = this.value;
               }
-            fetch("/cfg_get?co=jas")
-              .then(response => response.text())
-              .then(data => {
-                jas_slider.value = data;
-                jas_text.value = data;
-              })
-              .catch(error => console.error(error));
+
+              fetch("/cfg_get?co=jas")
+                .then(response => response.text())
+                .then(data => {
+                  jas_slider.value = data;
+                  jas_text.value = data;
+                })
+                .catch(error => console.error(error));
+
+              fetch("/cfg_get?co=gamma")
+                .then(response => response.text())
+                .then(data => {
+                  gamma.checked = data;
+                })
+                .catch(error => console.error(error));
             }
         </script>
 </head>
@@ -87,10 +117,91 @@
         <input type="button" value="Nastavit" onclick="javascript:nastavitRezim()"/>
     </p>
     <p>
+      <b>LED:</b>&nbsp;<select id="led" name="led">
+        <option value="-1" selected>Všechny</option>
+        <option value="39">Benešov</option>
+        <option value="32">Beroun</option>
+        <option value="55">Blansko</option>
+        <option value="71">Břeclav</option>
+        <option value="63">Brno</option>
+        <option value="25">Bruntál</option>
+        <option value="4">Česká Lípa</option>
+        <option value="67">České Budějovice</option>
+        <option value="70">Český Krumlov</option>
+        <option value="24">Cheb</option>
+        <option value="10">Chomutov</option>
+        <option value="34">Chrudim</option>
+        <option value="0">Děčín</option>
+        <option value="50">Domažlice</option>
+        <option value="42">Frýdek-Místek</option>
+        <option value="46">Havlíčkův Brod</option>
+        <option value="68">Hodonín</option>
+        <option value="18">Hradec Králové</option>
+        <option value="2">Jablonec nad Nisou</option>
+        <option value="17">Jeseník</option>
+        <option value="11">Jičín</option>
+        <option value="53">Jihlava</option>
+        <option value="64">Jindřichův Hradec</option>
+        <option value="16">Karlovy Vary</option>
+        <option value="35">Karviná</option>
+        <option value="22">Kladno</option>
+        <option value="54">Klatovy</option>
+        <option value="28">Kolín</option>
+        <option value="57">Kroměříž</option>
+        <option value="33">Kutná Hora</option>
+        <option value="1">Liberec</option>
+        <option value="8">Litoměřice</option>
+        <option value="15">Louny</option>
+        <option value="14">Mělník</option>
+        <option value="13">Mladá Boleslav</option>
+        <option value="9">Most</option>
+        <option value="12">Náchod</option>
+        <option value="44">Nový Jičín</option>
+        <option value="20">Nymburk</option>
+        <option value="45">Olomouc</option>
+        <option value="30">Opava</option>
+        <option value="36">Ostrava</option>
+        <option value="27">Pardubice</option>
+        <option value="51">Pelhřimov</option>
+        <option value="58">Písek</option>
+        <option value="40">Plzeň</option>
+        <option value="66">Prachatice</option>
+        <option value="26">Praha</option>
+        <option value="48">Přerov</option>
+        <option value="43">Příbram</option>
+        <option value="49">Prostějov</option>
+        <option value="23">Rakovník</option>
+        <option value="41">Rokycany</option>
+        <option value="21">Rychnov nad Kněžnou</option>
+        <option value="5">Semily</option>
+        <option value="19">Sokolov</option>
+        <option value="60">Strakonice</option>
+        <option value="31">Šumperk</option>
+        <option value="38">Svitavy</option>
+        <option value="52">Tábor</option>
+        <option value="37">Tachov</option>
+        <option value="6">Teplice</option>
+        <option value="62">Třebíč</option>
+        <option value="7">Trutnov</option>
+        <option value="65">Uherské Hradiště</option>
+        <option value="3">Ústí nad Labem</option>
+        <option value="29">Ústí nad Orlicí</option>
+        <option value="56">Vsetín</option>
+        <option value="59">Vyškov</option>
+        <option value="47">Žďár nad Sázavou</option>
+        <option value="61">Zlín</option>
+        <option value="69">Znojmo</option>
+      </select>&nbsp;
+      <b>Barva:</b>&nbsp;<input type="color" id="barva" name="barva" value="#ff0000">
+      <input type="button" value="Nastavit" onclick="javascript:nastavitLED()"/>
+    </p>
+    <p>
       <b>Jas:</b>&nbsp;<input id="jas_text" name="jas_text" size="3" min="0" max="100" value="5"/>
       <input type="range" id="jas_slider" name="jas_slider" min="0" max="100" value="5"/>
       <input type="button" value="Nastavit" onclick="javascript:nastavitJas()"/>
     </p>
+    <p>
+      <b>Gamma korekce:</b>&nbsp;<input type="checkbox" id="gamma" name="gamma" onchange="javascript:nastavitGamma()"/>
     <p id="odpoved"></p>
   </div>
 </body>
