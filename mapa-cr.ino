@@ -8,9 +8,12 @@
 
 #include "config.h"
 
+#define LEDS_COUNT  72
+#define LEDS_PIN	25
+
 // Objekt pro ovladani adresovatelnych RGB LED
 // Je jich 72 a jsou v serii pripojene na GPIO pin 25
-Adafruit_NeoPixel pixely(72, 25, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel pixely(LEDS_COUNT, LEDS_PIN, NEO_GRB + NEO_KHZ800);
 // HTTP server bezici na standardnim TCP portu 80
 WebServer server(80);
 // Pamet pro JSON s povely
@@ -19,81 +22,124 @@ WebServer server(80);
 // ktery bude obsahovat instrukce pro vsech 72 RGB LED
 StaticJsonDocument<10000> doc;
 
+struct map_mode {
+  String url;
+  void (*process_json)(void);
+};
+
 uint32_t t = 0;             // Refreshovaci timestamp
 uint32_t delay10 = 600000;  // Prodleva mezi aktualizaci dat, 10 minut
 uint8_t jas = 5;            // Vychozi jas
+int current_mode = 0;
 
-// Dekoder JSONu a rozsvecovac svetylek
-int jsonDecoder(String s, bool log) {
-  DeserializationError e = deserializeJson(doc, s);
-  if (e) {
-    if (e == DeserializationError::InvalidInput) {
-      return -1;
-    } else if (e == DeserializationError::NoMemory) {
-      return -2;
-    } else {
-      return -3;
-    }
-  } else {
-    pixely.clear();
-    JsonArray mesta = doc["seznam"].as<JsonArray>();
-    for (JsonObject mesto : mesta) {
-      int id = mesto["id"];
-      int r = mesto["r"];
-      int g = mesto["g"];
-      int b = mesto["b"];
-      if (log) Serial.printf("Rozsvecuji mesto %d barvou R=%d G=%d B=%d\r\n", id, r, g, b);
-      pixely.setPixelColor(id, pixely.Color(r, g, b));
-    }
-    pixely.show();
-    return 0;
+// Initialize array with number of districts readed from TMEP, 
+// which we will later populate with values from JSON
+float TMEPDistrictTemperatures[77];
+
+// We need to map our LED order with district order from TMEP,
+// so here we have array with positions of districts on TMEP that we get from JSON
+// starting from zero, so: index 0 (first LED) is district with ID 9 and so on
+// until we have district for every from our 72 LEDs
+int TMEPDistrictPosition[LEDS_COUNT] = {
+ 9, 11, 12, 8, 10, 13, 6, 15, 7, 5, 3, 14, 16, 67, 66, 4, 2, 24, 17, 1, 68, 18, 65, 64, 0, 
+ 25, 76, 20, 69, 19, 27, 23, 73, 70, 21, 29, 28, 59, 22, 71, 61, 63, 30, 72, 31, 26, 48, 
+ 46, 33, 39, 58, 49, 51, 47, 57, 40, 32, 35, 56, 38, 55, 34, 45, 41, 50, 36, 54, 52, 37, 
+ 44, 53, 43
+};
+
+void process_radar() {
+  pixely.clear();
+  JsonArray mesta = doc["seznam"].as<JsonArray>();
+  for (JsonObject mesto : mesta) {
+    int id = mesto["id"];
+    int r = mesto["r"];
+    int g = mesto["g"];
+    int b = mesto["b"];
+    //if (log) Serial.printf("Rozsvecuji mesto %d barvou R=%d G=%d B=%d\r\n", id, r, g, b);
+    pixely.setPixelColor(id, pixely.Color(r, g, b));
   }
+  pixely.show();
 }
+
+void process_temp() {
+  String tmp;
+  float maxTemp = -99;
+  float minTemp =  99;
+  // Read all TMEP districts with their indexes
+  for (JsonObject item : doc.as<JsonArray>()) {
+      int TMEPdistrictIndex = item["id"];
+      // Substract 1, so index will start from 0
+      TMEPdistrictIndex -= 1;
+      double h = item["h"];
+      TMEPDistrictTemperatures[TMEPdistrictIndex] = h;
+
+      // find the min and max temperature for adjusting of color layout
+      tmp = TMEPDistrictTemperatures[TMEPdistrictIndex];
+      if (tmp.toFloat() < minTemp) minTemp = tmp.toFloat();
+      if (tmp.toFloat() > maxTemp) maxTemp = tmp.toFloat();
+  }
+
+  // Now go through our LEDs and we will set their colors
+  for (int LED = 0; LED <= LEDS_COUNT - 1; LED++) {
+    int color;
+    // Get color for correct district and recalculate based on the min and max of temperature in Czechia - variable color layout
+    //color = map(TMEPDistrictTemperatures[TMEPDistrictPosition[LED]], minTemp, maxTemp, 170, 0);
+    // Get color for correct district LED - fixed color layout (min -15; max 40 °C)
+    color = map(TMEPDistrictTemperatures[TMEPDistrictPosition[LED]], -15, 40, 170, 0);
+    pixely.setPixelColor(LED, pixely.ColorHSV(color * 256)); // Assuming Wheel function is generating HSV colors
+  }
+
+  pixely.show();
+}
+
+#define NUM_MODES 2
+const struct map_mode modes[NUM_MODES] = {
+  {
+    .url = String("http://kloboukuv.cloud/radarmapa/?chcu=posledni_v2.json"),
+    .process_json = process_radar,
+  },
+  {
+    .url = String("http://cdn.tmep.cz/app/export/okresy-cr-teplota.json"),
+    .process_json = process_temp,
+  }
+};
 
 // Stazeni radarovych dat z webu
 void stahniData() {
+  const struct map_mode *mode = &modes[current_mode];
+
   HTTPClient http;
-  http.begin("http://kloboukuv.cloud/radarmapa/?chcu=posledni_v2.json");
+  http.begin(mode->url);
   int httpCode = http.GET();
   if (httpCode == HTTP_CODE_OK) {
-    int err = jsonDecoder(http.getString(), true);
-    switch (err) {
-      case 0:
-        Serial.println("Hotovo!");
-        break;
-      case -1:
-        Serial.println("Spatny format JSONu");
-        break;
-      case -2:
-        Serial.println("Malo pameti, navys velikost StaticJsonDocument");
-        break;
-      case -3:
-        Serial.println("Chyba pri parsovani JSONu");
-        break;
+    DeserializationError e = deserializeJson(doc, http.getString());
+    http.end();
+    if (e) {
+        Serial.print("deserializeJson() failed: ");
+        Serial.println(e.f_str());
+        return;
     }
+    mode->process_json();
+  } else {
+    Serial.print("HTTP Error code: ");
+    Serial.println(httpCode);
+    http.end();
   }
-  http.end();
 }
 
 void handle_json(void) {
   // Pokud HTTP data obsahuji parametr mesta
   // predame jeho obsah JSON dekoderu
   if (server.hasArg("mesta")) {
-    int err = jsonDecoder(server.arg("mesta"), true);
-    switch (err) {
-      case 0:
-        server.send(200, "text/plain", "OK");
-        break;
-      case -1:
-        server.send(200, "text/plain", "CHYBA\nSpatny format JSON");
-        break;
-      case -2:
-        server.send(200, "text/plain", "CHYBA\nMalo pameti RAM pro JSON. Navys ji!");
-        break;
-      case -3:
-        server.send(200, "text/plain", "CHYBA\nNepodarilo se mi dekodovat jSON");
-        break;
+    DeserializationError e = deserializeJson(doc, server.arg("mesta"));
+    if (e) {
+        Serial.print("deserializeJson() failed: ");
+        Serial.println(e.f_str());
+        server.send(200, "text/plain", String("CHYBA\nJSON problem: ") + e.c_str());
+        return;
     }
+    process_radar();
+    server.send(200, "text/plain", "OK");
   }
   // Ve vsech ostatnich pripadech odpovime chybovym hlasenim
   else {
@@ -125,6 +171,15 @@ void handle_cfg_set() {
     jas = server.arg("jas").toInt();
     pixely.setBrightness(jas);
     pixely.show();
+  }
+  if (server.hasArg("rezim")) {
+    int want_mode = server.arg("rezim").toInt();
+    if (want_mode >= NUM_MODES) {
+      server.send(200, "text/plain", "CHYBA, neznámý režim");
+      return;
+    }
+    current_mode = want_mode;
+    t = 0;
   }
   server.send(200, "text/plain", "OK");
 }
