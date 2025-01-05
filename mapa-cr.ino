@@ -51,7 +51,7 @@ int jsonDecoder(String s, bool log) {
 // Stazeni radarovych dat z webu
 void stahniData() {
   HTTPClient http;
-  http.begin("http://kloboukuv.cloud/radarmapa/?chcu=posledni.json");
+  http.begin("http://kloboukuv.cloud/radarmapa/?chcu=posledni_v2.json");
   int httpCode = http.GET();
   if (httpCode == HTTP_CODE_OK) {
     int err = jsonDecoder(http.getString(), true);
@@ -73,8 +73,7 @@ void stahniData() {
   http.end();
 }
 
-// Tuto funkci HTTP server zavola v pripade HTTP GET/POST pzoadavku na korenovou cestu /
-void httpDotaz(void) {
+void handle_json(void) {
   // Pokud HTTP data obsahuji parametr mesta
   // predame jeho obsah JSON dekoderu
   if (server.hasArg("mesta")) {
@@ -94,27 +93,81 @@ void httpDotaz(void) {
         break;
     }
   }
-  // Pokud jsme do mapy poslali jen HTTP GET/POST parametr smazat, mapa zhasne
-  else if (server.hasArg("smazat")) {
-    server.send(200, "text/plain", "OK");
-    pixely.clear();
-    pixely.show();
-  } else if (server.hasArg("jas")) {
-    server.send(200, "text/plain", "OK");
-    jas = server.arg("jas").toInt();
-    pixely.setBrightness(jas);
-    pixely.show();
-  }
   // Ve vsech ostatnich pripadech odpovime chybovym hlasenim
   else {
     server.send(200, "text/plain", "CHYBA\nNeznamy prikaz");
   }
 }
 
+void handle_single() {
+  int id = 0, r = 0, g = 0, b = 0;
+  if (server.hasArg("id")) {
+    id = server.arg("id").toInt();
+  } else {
+    server.send(200, "text/plain", "CHYBA\nChybi id diody");
+    return;
+  }
+  if (server.hasArg("r"))
+    r = server.arg("r").toInt();
+  if (server.hasArg("g"))
+    g = server.arg("g").toInt();
+  if (server.hasArg("b"))
+    b = server.arg("b").toInt();
+  pixely.setPixelColor(id, pixely.Color(r, g, b));
+  pixely.show();
+  server.send(200, "text/plain", "OK");
+}
+
+void handle_cfg() {
+  if (server.hasArg("jas")) {
+    jas = server.arg("jas").toInt();
+    pixely.setBrightness(jas);
+    pixely.show();
+  }
+  if (server.hasArg("redirect") && server.arg("redirect").toInt() == 1) {
+    server.sendHeader("Location", "/");
+    server.send(303, "text/plain", "");
+  } else {
+    server.send(200, "text/plain", "OK");
+  }
+}
+
+void handle_off() {
+    server.send(200, "text/plain", "OK");
+    pixely.clear();
+    pixely.show();  
+}
+
+void handle_root() {
+  String os("<!DOCTYPE html><html><head><title>Chytrá mapa</title></head><body>\n");
+  struct tm tm;
+
+  if (!getLocalTime(&tm, 100)) {
+    os += "<p>cas: neznamy</p>";
+  } else {
+    os += "<p>cas: ";
+    os += tm.tm_hour;
+    os += ":";
+    os += tm.tm_min;
+    os += "</p>";
+  }
+
+  os += "<form action=\"/cfg\"><input type=\"range\" name=\"jas\" min=\"0\" max=\"100\" value=\"";
+  
+  os += jas;
+  
+  os += "\"/><input type=\"hidden\" name=\"redirect\" value=\"1\"/><input type=\"submit\" value=\"nastavit\"/></form>\n";
+
+  os += "</body></html>\n";
+
+  server.send(200, "text/html", os);
+}
+
 // Hlavni funkce setup se zpracuje hned po startu cipu ESP32
 void setup() {
   // Nastartujeme serivou linku rychlosti 115200 b/s
   Serial.begin(115200);
+  delay(3000);
   // Pripojime se k Wi-Fi a pote vypiseme do seriove linky IP adresu
   WiFi.disconnect(); // Vynucene odpojeni; obcas pomuze, kdyz se cip po startu nechce prihlasit
   WiFi.mode(WIFI_STA);
@@ -129,8 +182,15 @@ void setup() {
   WiFi.persistent(true);
   // Vypiseme do seriove linky pro kontrolu LAN IP adresu mapy
   Serial.printf(" OK\nIP: %s\r\n", WiFi.localIP().toString());
+
+  configTzTime(MY_TZ, MY_NTP_SERVER, "", "");
+
   // Pro HTTP pozadavku / zavolame funkci httpDotaz
-  server.on("/", httpDotaz);
+  server.on("/json", handle_json);
+  server.on("/off", handle_off);
+  server.on("/cfg", handle_cfg);
+  server.on("/single", handle_single);
+  server.on("/", handle_root);
   // Aktivujeme server
   server.begin();
   // Nakonfigurujeme adresovatelene LED do vychozi zhasnute pozice
@@ -140,8 +200,6 @@ void setup() {
   pixely.setBrightness(jas);
   pixely.clear();
   pixely.show();
-
-  stahniData();  // Stahni data...
 }
 
 // Smycka loop se opakuje stale dokola
@@ -150,7 +208,7 @@ void loop() {
   // Vyridime pripadne TCP spojeni klientu se serverem
   server.handleClient();
   // Kazdych deset minut stahnu nova data
-  if (millis() - t > delay10) {
+  if (t == 0 || millis() - t > delay10) {
     t = millis();
     stahniData();
   }
