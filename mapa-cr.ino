@@ -54,29 +54,41 @@ int TMEPDistrictPosition[LEDS_COUNT] = {
 /* cache and set color */
 static void set_color(int id, uint32_t col) {
   color_cache[id] = col;
+
   if (gamma_cor)
     col = pixely.gamma32(col);
+
   pixely.setPixelColor(id, col);
+}
+
+static void clear_colors() {
+  for (int i = 0; i < LEDS_COUNT; i++)
+    color_cache[i] = 0;
+
+  pixely.clear();
 }
 
 static void render_cached_colors() {
   for (int i = 0; i < LEDS_COUNT; i++) {
     uint32_t col = color_cache[i];
-  if (gamma_cor)
-    col = pixely.gamma32(col);
+
+    if (gamma_cor)
+      col = pixely.gamma32(col);
+
     pixely.setPixelColor(i, col);
   }
   pixely.show();
 }
 
 void process_radar() {
+  clear_colors();
   JsonArray mesta = doc["seznam"].as<JsonArray>();
   for (JsonObject mesto : mesta) {
     int id = mesto["id"];
     int r = mesto["r"];
     int g = mesto["g"];
     int b = mesto["b"];
-    //if (log) Serial.printf("Rozsvecuji mesto %d barvou R=%d G=%d B=%d\r\n", id, r, g, b);
+
     set_color(id, pixely.Color(r, g, b));
   }
   pixely.show();
@@ -100,6 +112,7 @@ void process_temp() {
       if (tmp.toFloat() > maxTemp) maxTemp = tmp.toFloat();
   }
 
+  clear_colors();
   // Now go through our LEDs and we will set their colors
   for (int LED = 0; LED <= LEDS_COUNT - 1; LED++) {
     int color;
