@@ -22,6 +22,9 @@ WebServer server(80);
 // ktery bude obsahovat instrukce pro vsech 72 RGB LED
 StaticJsonDocument<10000> doc;
 
+/* Allow easy and lossless re-rendering when brightness or gamma changes */
+uint32_t color_cache[LEDS_COUNT];
+
 struct map_mode {
   String url;
   void (*process_json)(void);
@@ -48,22 +51,25 @@ int TMEPDistrictPosition[LEDS_COUNT] = {
  44, 53, 43
 };
 
-static uint32_t colRGB(int r, int g, int b) {
-  uint32_t ret = pixely.Color(r, g, b);
+/* cache and set color */
+static void set_color(int id, uint32_t col) {
+  color_cache[id] = col;
   if (gamma_cor)
-    ret = pixely.gamma32(ret);
-  return ret;
+    col = pixely.gamma32(col);
+  pixely.setPixelColor(id, col);
 }
 
-static uint32_t colH(int h) {
-  uint32_t ret = pixely.ColorHSV(h << 8);
+static void render_cached_colors() {
+  for (int i = 0; i < LEDS_COUNT; i++) {
+    uint32_t col = color_cache[i];
   if (gamma_cor)
-    ret = pixely.gamma32(ret);
-  return ret;
+    col = pixely.gamma32(col);
+    pixely.setPixelColor(i, col);
+  }
+  pixely.show();
 }
 
 void process_radar() {
-  pixely.clear();
   JsonArray mesta = doc["seznam"].as<JsonArray>();
   for (JsonObject mesto : mesta) {
     int id = mesto["id"];
@@ -71,7 +77,7 @@ void process_radar() {
     int g = mesto["g"];
     int b = mesto["b"];
     //if (log) Serial.printf("Rozsvecuji mesto %d barvou R=%d G=%d B=%d\r\n", id, r, g, b);
-    pixely.setPixelColor(id, colRGB(r, g, b));
+    set_color(id, pixely.Color(r, g, b));
   }
   pixely.show();
 }
@@ -100,8 +106,8 @@ void process_temp() {
     // Get color for correct district and recalculate based on the min and max of temperature in Czechia - variable color layout
     //color = map(TMEPDistrictTemperatures[TMEPDistrictPosition[LED]], minTemp, maxTemp, 170, 0);
     // Get color for correct district LED - fixed color layout (min -15; max 40 °C)
-    color = map(TMEPDistrictTemperatures[TMEPDistrictPosition[LED]], -15, 40, 170, 0);
-    pixely.setPixelColor(LED, colH(color)); // Assuming Wheel function is generating HSV colors
+    color = map(TMEPDistrictTemperatures[TMEPDistrictPosition[LED]], -15, 40, 170, 0) << 8;
+    set_color(LED, pixely.ColorHSV(color)); // Assuming Wheel function is generating HSV colors
   }
 
   pixely.show();
@@ -182,24 +188,25 @@ void handle_single() {
   if (server.hasArg("b"))
     b = server.arg("b").toInt();
 
-  uint32_t color = colRGB(r, g, b);
+  uint32_t color = pixely.Color(r, g, b);
 
   if (id < 0) {
     for (int i = 0; i < LEDS_COUNT; i++) {
-      pixely.setPixelColor(i, color);
+      set_color(i, color);
     }
   } else {
-    pixely.setPixelColor(id, color);
+    set_color(id, color);
   }
   pixely.show();
   server.send(200, "text/plain", "OK");
 }
 
 void handle_cfg_set() {
+  bool render = false;
   if (server.hasArg("jas")) {
     jas = server.arg("jas").toInt();
     pixely.setBrightness(jas);
-    pixely.show();
+    render = true;
   }
   if (server.hasArg("rezim")) {
     int want_mode = server.arg("rezim").toInt();
@@ -212,7 +219,10 @@ void handle_cfg_set() {
   }
   if (server.hasArg("gamma")) {
     gamma_cor = server.arg("gamma") == "true";
+    render = true;
   }
+  if (render)
+    render_cached_colors();
   server.send(200, "text/plain", "OK");
 }
 
