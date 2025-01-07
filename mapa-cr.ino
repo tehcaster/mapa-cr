@@ -31,6 +31,7 @@ uint32_t color_cache[LEDS_COUNT];
 struct map_mode {
   String url;
   void (*process_json)(void);
+  int refresh_minutes;
 };
 
 uint32_t t = 0;             // Refreshovaci timestamp
@@ -38,6 +39,8 @@ uint32_t delay10 = 600000;  // Prodleva mezi aktualizaci dat, 10 minut
 uint8_t jas = 5;            // Vychozi jas
 int current_mode = 0;
 bool gamma_cor = true;
+bool ignore_night = false;
+bool night_active = false;
 
 // Initialize array with number of districts readed from TMEP, 
 // which we will later populate with values from JSON
@@ -134,10 +137,12 @@ const struct map_mode modes[NUM_MODES] = {
   {
     .url = String("http://kloboukuv.cloud/radarmapa/?chcu=posledni_v2.json"),
     .process_json = process_radar,
+    .refresh_minutes = 10,
   },
   {
     .url = String("http://cdn.tmep.cz/app/export/okresy-cr-teplota.json"),
     .process_json = process_temp,
+    .refresh_minutes = 2,
   }
 };
 
@@ -237,6 +242,13 @@ void handle_cfg_set() {
     gamma_cor = server.arg("gamma") == "true";
     render = true;
   }
+  if (server.hasArg("ignoruj_noc")) {
+    ignore_night = server.arg("ignoruj_noc") == "true";
+    if (night_active) {
+      night_active == false;
+      render = true;
+    }
+  }
   if (render)
     render_cached_colors();
   server.send(200, "text/plain", "OK");
@@ -249,8 +261,10 @@ void handle_cfg_get() {
   String co = server.arg("co");
   if (co == "jas") {
     server.send(200, "text/plain", String(jas));
-  } if (co == "gamma") {
+  } else if (co == "gamma") {
     server.send(200, "text/plain", gamma_cor ? "true" : "false");
+  } else if (co == "ignoruj_noc") {
+    server.send(200, "text/plain", ignore_night ? "true" : "false");
   } else {
     server.send(200, "text/plain", "CHYBA\nNeznam parametr " + co);
   }
@@ -307,16 +321,50 @@ void setup() {
   pixely.show();
 }
 
+static long lastSec = 0;
+
+int timeOff = 20*60;
+int timeOn = 8*60;
+
 // Smycka loop se opakuje stale dokola
 // a nastartuje se po zpracovani funkce setup
 void loop() {
   // Vyridime pripadne TCP spojeni klientu se serverem
   server.handleClient();
+
+  /* only bother once a second */
+  if (!(millis() - lastSec) > 1000)
+    return;
+
+  lastSec = millis();
+
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)) {
+    pixely.clear();
+    pixely.show();
+
+    return;
+  }
+
+  int minutes = timeinfo.tm_hour * 60 + timeinfo.tm_min;
+
+  if (!ignore_night &&
+      ((timeOn <  timeOff && !(minutes >= timeOn && minutes < timeOff)) ||
+       (timeOn >= timeOff && (timeOff <= minutes && minutes < timeOn)))) {
+    if (!night_active) {
+      pixely.clear();
+      pixely.show();
+      night_active = true;
+    }
+
+    return;
+  }
+
+  night_active = false;
+
   // Kazdych deset minut stahnu nova data
   if (t == 0 || millis() - t > delay10) {
     t = millis();
     stahniData();
   }
-  // Pockame 2 ms (prenechame CPU pro ostatni ulohy na pozadi) a opakujeme
-  delay(2);
 }

@@ -42,12 +42,12 @@
                 doFetch(url);
             }
 
-            function nastavitGamma() {
-                let _gamma = document.querySelector("#gamma").checked;
+            function nastavitCheck(id) {
+                let _check = document.getElementById(id).checked;
 
-                console.log("Gamma: " + _gamma);
+                console.log(id + ": " + _check);
 
-                let url = "/cfg_set?gamma=" + _gamma;
+                let url = "/cfg_set?" + id + "=" + _check;
 
                 doFetch(url);
             }
@@ -81,6 +81,7 @@
               var jas_slider = document.getElementById("jas_slider");
               var jas_text = document.getElementById("jas_text");
               var gamma = document.getElementById("gamma");
+              var ignoruj_noc = document.getElementById("ignoruj_noc");
 
               jas_slider.oninput = function() {
                 jas_text.value = this.value;
@@ -100,7 +101,14 @@
               fetch("/cfg_get?co=gamma")
                 .then(response => response.text())
                 .then(data => {
-                  gamma.checked = data;
+                  gamma.checked = (data === 'true');
+                })
+                .catch(error => console.error(error));
+
+              fetch("/cfg_get?co=ignoruj_noc")
+                .then(response => response.text())
+                .then(data => {
+                  ignoruj_noc.checked = (data === 'true');
                 })
                 .catch(error => console.error(error));
             }
@@ -201,7 +209,11 @@
       <input type="button" value="Nastavit" onclick="javascript:nastavitJas()"/>
     </p>
     <p>
-      <b>Gamma korekce:</b>&nbsp;<input type="checkbox" id="gamma" name="gamma" onchange="javascript:nastavitGamma()"/>
+      <b>Gamma korekce:</b>&nbsp;<input type="checkbox" id="gamma" name="gamma" onchange="javascript:nastavitCheck('gamma')"/>
+    </p>
+    <p>
+      <b>Noční režim: Ignorovat </b>&nbsp;<input type="checkbox" id="ignoruj_noc" name="ignoruj_noc" onchange="javascript:nastavitCheck('ignoruj_noc')"/>
+    </p>
     <p id="odpoved"></p>
   </div>
 </body>
