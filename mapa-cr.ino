@@ -41,6 +41,9 @@ int current_mode = 0;
 bool gamma_cor = true;
 bool ignore_night = false;
 bool night_active = false;
+// this is in minutes since midnight
+int time_off = 20*60;
+int time_on = 8*60;
 
 // Initialize array with number of districts readed from TMEP, 
 // which we will later populate with values from JSON
@@ -249,26 +252,31 @@ void handle_cfg_set() {
       render = true;
     }
   }
+  if (server.hasArg("noc_od")) {
+    time_off = server.arg("noc_od").toInt();
+  }
+  if (server.hasArg("noc_do")) {
+    time_on = server.arg("noc_do").toInt();
+  }
   if (render)
     render_cached_colors();
   server.send(200, "text/plain", "OK");
 }
 
 void handle_cfg_get() {
-  if (!server.hasArg("co")) {
-    server.send(200, "text/plain", "CHYBA\nChybi co");
-  }
-  String co = server.arg("co");
-  if (co == "jas") {
-    server.send(200, "text/plain", String(jas));
-  } else if (co == "gamma") {
-    server.send(200, "text/plain", gamma_cor ? "true" : "false");
-  } else if (co == "ignoruj_noc") {
-    server.send(200, "text/plain", ignore_night ? "true" : "false");
-  } else {
-    server.send(200, "text/plain", "CHYBA\nNeznam parametr " + co);
-  }
-  server.send(200, "text/plain", "OK");
+  String json;
+
+  doc.clear();
+
+  doc["rezim"] = current_mode;
+  doc["jas"] = jas;
+  doc["gamma"] = gamma_cor;
+  doc["ignoruj_noc"] = ignore_night;
+  doc["noc_od"] = time_off;
+  doc["noc_do"] = time_on;
+
+  serializeJson(doc, json);
+  server.send(200, "application/json", json);
 }
 
 void handle_off() {
@@ -323,9 +331,6 @@ void setup() {
 
 static long lastSec = 0;
 
-int timeOff = 20*60;
-int timeOn = 8*60;
-
 // Smycka loop se opakuje stale dokola
 // a nastartuje se po zpracovani funkce setup
 void loop() {
@@ -349,8 +354,8 @@ void loop() {
   int minutes = timeinfo.tm_hour * 60 + timeinfo.tm_min;
 
   if (!ignore_night &&
-      ((timeOn <  timeOff && !(minutes >= timeOn && minutes < timeOff)) ||
-       (timeOn >= timeOff && (timeOff <= minutes && minutes < timeOn)))) {
+      ((time_on <  time_off && !(minutes >= time_on && minutes < time_off)) ||
+       (time_on >= time_off && (time_off <= minutes && minutes < time_on)))) {
     if (!night_active) {
       pixely.clear();
       pixely.show();
@@ -360,7 +365,10 @@ void loop() {
     return;
   }
 
-  night_active = false;
+  if (night_active) {
+    render_cached_colors();
+    night_active = false;
+  }
 
   // Kazdych deset minut stahnu nova data
   if (t == 0 || millis() - t > delay10) {

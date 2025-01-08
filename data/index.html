@@ -62,6 +62,17 @@
                 doFetch(url);
             }
 
+            function nastavitNoc() {
+                let _noc_od_h = parseInt(document.getElementById("noc_od_h").value);
+                let _noc_od_m = parseInt(document.getElementById("noc_od_m").value);
+                let _noc_do_h = parseInt(document.getElementById("noc_do_h").value);
+                let _noc_do_m = parseInt(document.getElementById("noc_do_m").value);
+
+                let url = "/cfg_set?noc_od=" + (_noc_od_h*60 + _noc_od_m);
+                url += "&noc_do=" + (_noc_do_h*60 + _noc_do_m);
+                doFetch(url);
+            }
+
             function nastavitLED() {
                 let _barva = document.querySelector("#barva").value;
                 let _led = document.querySelector("#led").value;
@@ -78,10 +89,15 @@
             }
 
             window.onload = function(e) {
+              var rezim = document.getElementById("rezim");
               var jas_slider = document.getElementById("jas_slider");
               var jas_text = document.getElementById("jas_text");
               var gamma = document.getElementById("gamma");
               var ignoruj_noc = document.getElementById("ignoruj_noc");
+              var noc_od_h = document.getElementById("noc_od_h");
+              var noc_od_m = document.getElementById("noc_od_m");
+              var noc_do_h = document.getElementById("noc_do_h");
+              var noc_do_m = document.getElementById("noc_do_m");
 
               jas_slider.oninput = function() {
                 jas_text.value = this.value;
@@ -90,27 +106,21 @@
                 jas_slider.value = this.value;
               }
 
-              fetch("/cfg_get?co=jas")
-                .then(response => response.text())
-                .then(data => {
-                  jas_slider.value = data;
-                  jas_text.value = data;
+              fetch("/cfg_get")
+                .then(response => response.json())
+                .then(cfg => {
+                  rezim.value = cfg.rezim;
+                  jas_slider.value = cfg.jas;
+                  jas_text.value = cfg.jas;
+                  gamma.checked = cfg.gamma;
+                  ignoruj_noc.checked = cfg.ignoruj_noc;
+                  noc_od_h.value = Math.floor(cfg.noc_od / 60);
+                  noc_od_m.value = cfg.noc_od % 60;
+                  noc_do_h.value = Math.floor(cfg.noc_do / 60);
+                  noc_do_m.value = cfg.noc_do % 60;
                 })
                 .catch(error => console.error(error));
 
-              fetch("/cfg_get?co=gamma")
-                .then(response => response.text())
-                .then(data => {
-                  gamma.checked = (data === 'true');
-                })
-                .catch(error => console.error(error));
-
-              fetch("/cfg_get?co=ignoruj_noc")
-                .then(response => response.text())
-                .then(data => {
-                  ignoruj_noc.checked = (data === 'true');
-                })
-                .catch(error => console.error(error));
             }
         </script>
 </head>
@@ -212,7 +222,75 @@
       <b>Gamma korekce:</b>&nbsp;<input type="checkbox" id="gamma" name="gamma" onchange="javascript:nastavitCheck('gamma')"/>
     </p>
     <p>
-      <b>Noční režim: Ignorovat </b>&nbsp;<input type="checkbox" id="ignoruj_noc" name="ignoruj_noc" onchange="javascript:nastavitCheck('ignoruj_noc')"/>
+      <b>Noční režim:&nbsp;Od:&nbsp;</b><select id="noc_od_h" name="noc_od_h">
+        <option value="0">00</option>
+        <option value="1">01</option>
+        <option value="2">02</option>
+        <option value="3">03</option>
+        <option value="4">04</option>
+        <option value="5">05</option>
+        <option value="6">06</option>
+        <option value="7">07</option>
+        <option value="8">08</option>
+        <option value="9">09</option>
+        <option value="10">10</option>
+        <option value="11">11</option>
+        <option value="12">12</option>
+        <option value="13">13</option>
+        <option value="14">14</option>
+        <option value="15">15</option>
+        <option value="16">16</option>
+        <option value="17">17</option>
+        <option value="18">18</option>
+        <option value="19">19</option>
+        <option value="20">20</option>
+        <option value="21">21</option>
+        <option value="22">22</option>
+        <option value="23">23</option>
+      </select>&nbsp;<b>:</b>&nbsp;<select id="noc_od_m" name="noc_od_m">
+        <option value="0">00</option>
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="30">30</option>
+        <option value="40">40</option>
+        <option value="50">50</option>
+      </select>&nbsp;<b>Do:</b>&nbsp;<select id="noc_do_h" name="noc_do_h">
+        <option value="0">00</option>
+        <option value="1">01</option>
+        <option value="2">02</option>
+        <option value="3">03</option>
+        <option value="4">04</option>
+        <option value="5">05</option>
+        <option value="6">06</option>
+        <option value="7">07</option>
+        <option value="8">08</option>
+        <option value="9">09</option>
+        <option value="10">10</option>
+        <option value="11">11</option>
+        <option value="12">12</option>
+        <option value="13">13</option>
+        <option value="14">14</option>
+        <option value="15">15</option>
+        <option value="16">16</option>
+        <option value="17">17</option>
+        <option value="18">18</option>
+        <option value="19">19</option>
+        <option value="20">20</option>
+        <option value="21">21</option>
+        <option value="22">22</option>
+        <option value="23">23</option>
+      </select>&nbsp;<b>:</b>&nbsp;<select id="noc_do_m" name="noc_do_m">
+        <option value="0">00</option>
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="30">30</option>
+        <option value="40">40</option>
+        <option value="50">50</option>
+      </select>&nbsp;&nbsp;
+      <input type="button" value="Nastavit" onclick="javascript:nastavitNoc()"/>
+    </p>
+    <p>
+      <b>Ignorovat noční režim: </b>&nbsp;<input type="checkbox" id="ignoruj_noc" name="ignoruj_noc" onchange="javascript:nastavitCheck('ignoruj_noc')"/>
     </p>
     <p id="odpoved"></p>
   </div>
