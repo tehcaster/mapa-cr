@@ -62,6 +62,12 @@
                 doFetch(url);
             }
 
+            function nastavitTrvale() {
+                let url = "/cfg_set?ulozit=1";
+
+                doFetch(url);
+            }
+
             function nastavitNoc() {
                 let _noc_od_h = parseInt(document.getElementById("noc_od_h").value);
                 let _noc_od_m = parseInt(document.getElementById("noc_od_m").value);
@@ -288,6 +294,9 @@
         <option value="50">50</option>
       </select>&nbsp;&nbsp;
       <input type="button" value="Nastavit" onclick="javascript:nastavitNoc()"/>
+    </p>
+    <p>
+      <input type="button" value="Uložit trvale nastavení" onclick="javascript:nastavitTrvale()"/>
     </p>
     <p>
       <b>Ignorovat noční režim: </b>&nbsp;<input type="checkbox" id="ignoruj_noc" name="ignoruj_noc" onchange="javascript:nastavitCheck('ignoruj_noc')"/>

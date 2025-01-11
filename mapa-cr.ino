@@ -5,6 +5,7 @@
 #include <HTTPClient.h>
 #include <FS.h>
 #include "SPIFFS.h"
+#include <Preferences.h>
 
 // see https://github.com/adafruit/Adafruit_NeoPixel/issues/375#issuecomment-2268197924
 SET_LOOP_TASK_STACK_SIZE(16*1024);
@@ -13,6 +14,8 @@ SET_LOOP_TASK_STACK_SIZE(16*1024);
 
 #define LEDS_COUNT  72
 #define LEDS_PIN	25
+
+Preferences myPrefs;
 
 // Objekt pro ovladani adresovatelnych RGB LED
 // Je jich 72 a jsou v serii pripojene na GPIO pin 25
@@ -258,6 +261,17 @@ void handle_cfg_set() {
   if (server.hasArg("noc_do")) {
     time_on = server.arg("noc_do").toInt();
   }
+  if (server.hasArg("ulozit")) {
+    myPrefs.begin("mapa-cr", false);
+
+    jas = myPrefs.putUChar("jas", jas);
+    current_mode = myPrefs.putInt("current_mode", current_mode);
+    gamma_cor = myPrefs.putBool("gamma_cor", gamma_cor);
+    time_off = myPrefs.putInt("time_off", time_off);
+    time_on = myPrefs.putInt("time_on", time_on);
+
+    myPrefs.end();
+  }
   if (render)
     render_cached_colors();
   server.send(200, "text/plain", "OK");
@@ -306,6 +320,16 @@ void setup() {
   Serial.printf(" OK\nIP: %s\r\n", WiFi.localIP().toString());
 
   configTzTime(MY_TZ, MY_NTP_SERVER, "", "");
+
+  myPrefs.begin("mapa-cr", true);
+
+  jas = myPrefs.getUChar("jas", jas);
+  current_mode = myPrefs.getInt("current_mode", current_mode);
+  gamma_cor = myPrefs.getBool("gamma_cor", gamma_cor);
+  time_off = myPrefs.getInt("time_off", time_off);
+  time_on = myPrefs.getInt("time_on", time_on);
+
+  myPrefs.end();
 
   SPIFFS.begin();
 
