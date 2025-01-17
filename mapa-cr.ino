@@ -8,7 +8,8 @@
 #include <Preferences.h>
 
 // see https://github.com/adafruit/Adafruit_NeoPixel/issues/375#issuecomment-2268197924
-SET_LOOP_TASK_STACK_SIZE(16*1024);
+// should be resolved in 1.12.4
+//SET_LOOP_TASK_STACK_SIZE(16*1024);
 
 #include "config.h"
 
