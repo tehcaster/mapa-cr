@@ -67,11 +67,6 @@ int TMEPDistrictPosition[LEDS_COUNT] = {
 /* cache and set color */
 static void set_color(int id, uint32_t col) {
   color_cache[id] = col;
-
-  if (gamma_cor)
-    col = pixely.gamma32(col);
-
-  pixely.setPixelColor(id, col);
 }
 
 static void clear_colors() {
@@ -104,7 +99,7 @@ void process_radar() {
 
     set_color(id, pixely.Color(r, g, b));
   }
-  pixely.show();
+  render_cached_colors();
 }
 
 void process_temp() {
@@ -136,10 +131,10 @@ void process_temp() {
     set_color(LED, pixely.ColorHSV(color)); // Assuming Wheel function is generating HSV colors
   }
 
-  pixely.show();
+  render_cached_colors();
 }
 
-#define NUM_MODES 2
+#define NUM_MODES 3
 const struct map_mode modes[NUM_MODES] = {
   {
     .url = String("http://kloboukuv.cloud/radarmapa/?chcu=posledni_v2.json"),
@@ -150,12 +145,18 @@ const struct map_mode modes[NUM_MODES] = {
     .url = String("http://cdn.tmep.cz/app/export/okresy-cr-teplota.json"),
     .process_json = process_temp,
     .refresh_minutes = 2,
-  }
+  },
+  {
+    .url = String(""),
+  },
 };
 
 // Stazeni radarovych dat z webu
 void stahniData() {
   const struct map_mode *mode = &modes[current_mode];
+
+  if (mode->url == "")
+    return;
 
   HTTPClient http;
   http.begin(mode->url);
@@ -225,7 +226,7 @@ void handle_single() {
   } else {
     set_color(id, color);
   }
-  pixely.show();
+  render_cached_colors();
   server.send(200, "text/plain", "OK");
 }
 
