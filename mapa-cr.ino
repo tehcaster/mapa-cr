@@ -266,11 +266,11 @@ void handle_cfg_set() {
   if (server.hasArg("ulozit")) {
     myPrefs.begin("mapa-cr", false);
 
-    jas = myPrefs.putUChar("jas", jas);
-    current_mode = myPrefs.putInt("current_mode", current_mode);
-    gamma_cor = myPrefs.putBool("gamma_cor", gamma_cor);
-    time_off = myPrefs.putInt("time_off", time_off);
-    time_on = myPrefs.putInt("time_on", time_on);
+    myPrefs.putUChar("jas", jas);
+    myPrefs.putInt("current_mode", current_mode);
+    myPrefs.putBool("gamma_cor", gamma_cor);
+    myPrefs.putInt("time_off", time_off);
+    myPrefs.putInt("time_on", time_on);
 
     myPrefs.end();
   }
