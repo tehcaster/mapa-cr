@@ -38,7 +38,11 @@ struct map_mode {
   int refresh_minutes;
 };
 
-uint32_t t = 0;             // Refreshovaci timestamp
+struct mode_cache {
+  uint32_t colors[LEDS_COUNT];
+  uint32_t last_refresh;
+};
+
 uint32_t delay10 = 600000;  // Prodleva mezi aktualizaci dat, 10 minut
 uint8_t jas = 5;            // Vychozi jas
 int current_mode = 0;
@@ -64,14 +68,18 @@ int TMEPDistrictPosition[LEDS_COUNT] = {
  44, 53, 43
 };
 
+#define NUM_MODES 3
+struct mode_cache mode_caches[NUM_MODES];
+
 /* cache and set color */
 static void set_color(int id, uint32_t col) {
   color_cache[id] = col;
+  mode_caches[current_mode].colors[id] = col;
 }
 
 static void clear_colors() {
   for (int i = 0; i < LEDS_COUNT; i++)
-    color_cache[i] = 0;
+    set_color(i, 0);
 
   pixely.clear();
 }
@@ -88,7 +96,14 @@ static void render_cached_colors() {
   pixely.show();
 }
 
-void process_radar() {
+static void switch_mode(int mode) {
+  current_mode = mode;
+  for (int i = 0; i < LEDS_COUNT; i++) {
+    color_cache[i] = mode_caches[mode].colors[i];
+  }
+}
+
+static void process_radar() {
   clear_colors();
   JsonArray mesta = doc["seznam"].as<JsonArray>();
   for (JsonObject mesto : mesta) {
@@ -102,7 +117,7 @@ void process_radar() {
   render_cached_colors();
 }
 
-void process_temp() {
+static void process_temp() {
   String tmp;
   float maxTemp = -99;
   float minTemp =  99;
@@ -134,7 +149,6 @@ void process_temp() {
   render_cached_colors();
 }
 
-#define NUM_MODES 3
 const struct map_mode modes[NUM_MODES] = {
   {
     .url = String("http://kloboukuv.cloud/radarmapa/?chcu=posledni_v2.json"),
@@ -170,6 +184,7 @@ void stahniData() {
         return;
     }
     mode->process_json();
+    Serial.println("Downloaded new data");
   } else {
     Serial.print("HTTP Error code: ");
     Serial.println(httpCode);
@@ -243,8 +258,8 @@ void handle_cfg_set() {
       server.send(200, "text/plain", "CHYBA, neznámý režim");
       return;
     }
-    current_mode = want_mode;
-    t = 0;
+    switch_mode(want_mode);
+    render = true;
   }
   if (server.hasArg("gamma")) {
     gamma_cor = server.arg("gamma") == "true";
@@ -396,9 +411,17 @@ void loop() {
     night_active = false;
   }
 
-  // Kazdych deset minut stahnu nova data
-  if (t == 0 || millis() - t > delay10) {
-    t = millis();
+  minutes += 24 * 60;
+  uint32_t last = mode_caches[current_mode].last_refresh;
+
+  // midnight
+  if (last > minutes) {
+    last -= 24 * 60;
+    mode_caches[current_mode].last_refresh = last;
+  }
+
+  if (last == 0 || minutes - last >= modes[current_mode].refresh_minutes) {
     stahniData();
+    mode_caches[current_mode].last_refresh = minutes;
   }
 }
