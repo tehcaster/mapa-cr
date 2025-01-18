@@ -42,6 +42,16 @@
                 doFetch(url);
             }
 
+            function nastavitCyklSec() {
+                let _jas = document.querySelector("#cykl_sec").value;
+
+                console.log("Jas: " + _jas);
+
+                let url = "/cfg_set?cykl_sec=" + _jas;
+
+                doFetch(url);
+            }
+
             function nastavitCheck(id) {
                 let _check = document.getElementById(id).checked;
 
@@ -96,6 +106,8 @@
 
             window.onload = function(e) {
               var rezim = document.getElementById("rezim");
+              var cyklovat = document.getElementById("cyklovat");
+              var cykl_sec = document.getElementById("cykl_sec");
               var jas_slider = document.getElementById("jas_slider");
               var jas_text = document.getElementById("jas_text");
               var gamma = document.getElementById("gamma");
@@ -116,6 +128,8 @@
                 .then(response => response.json())
                 .then(cfg => {
                   rezim.value = cfg.rezim;
+                  cyklovat.checked = cfg.cyklovat;
+                  cykl_sec.value = cfg.cykl_sec;
                   jas_slider.value = cfg.jas;
                   jas_text.value = cfg.jas;
                   gamma.checked = cfg.gamma;
@@ -140,6 +154,10 @@
           <option value="2">Manuální</option>
         </select>
         <input type="button" value="Nastavit" onclick="javascript:nastavitRezim()"/>
+    </p>
+    <p>
+        <b>Střídat režimy po:</b>&nbsp;&nbsp;<input id="cykl_sec" name="cykl_sec" size="3" min="0" max="999" value="30"/>&nbsp;s&nbsp;<input type="button" value="Nastavit" onclick="javascript:nastavitCyklSec()"/>&nbsp;
+        <b>Aktivní:</b>&nbsp;<input type="checkbox" id="cyklovat" name="cyklovat" onchange="javascript:nastavitCheck('cyklovat')"/>
     </p>
     <p>
       <b>LED:</b>&nbsp;<select id="led" name="led">

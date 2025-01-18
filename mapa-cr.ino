@@ -36,6 +36,7 @@ struct map_mode {
   String url;
   void (*process_json)(void);
   int refresh_minutes;
+  bool no_cycle;
 };
 
 struct mode_cache {
@@ -46,6 +47,8 @@ struct mode_cache {
 uint32_t delay10 = 600000;  // Prodleva mezi aktualizaci dat, 10 minut
 uint8_t jas = 5;            // Vychozi jas
 int current_mode = 0;
+bool cycle_modes = true;
+int cycle_seconds = 30;
 bool gamma_cor = true;
 bool ignore_night = false;
 bool night_active = false;
@@ -162,8 +165,23 @@ const struct map_mode modes[NUM_MODES] = {
   },
   {
     .url = String(""),
+    .no_cycle = true,
   },
 };
+
+static void cycle_mode() {
+  int mode = current_mode;
+  while (true) {
+    mode++;
+    if (mode == NUM_MODES) {
+      mode = 0;
+    }
+    if (!modes[mode].no_cycle) {
+      switch_mode(mode);
+      break;
+    }
+  }
+}
 
 // Stazeni radarovych dat z webu
 void stahniData() {
@@ -272,6 +290,12 @@ void handle_cfg_set() {
       render = true;
     }
   }
+  if (server.hasArg("cyklovat")) {
+    cycle_modes = server.arg("cyklovat") == "true";
+  }
+  if (server.hasArg("cykl_sec")) {
+    cycle_seconds = server.arg("cykl_sec").toInt();
+  }
   if (server.hasArg("noc_od")) {
     time_off = server.arg("noc_od").toInt();
   }
@@ -283,6 +307,8 @@ void handle_cfg_set() {
 
     myPrefs.putUChar("jas", jas);
     myPrefs.putInt("current_mode", current_mode);
+    myPrefs.putBool("cycle_modes", cycle_modes);
+    myPrefs.putInt("cycle_seconds", cycle_seconds);
     myPrefs.putBool("gamma_cor", gamma_cor);
     myPrefs.putInt("time_off", time_off);
     myPrefs.putInt("time_on", time_on);
@@ -300,6 +326,8 @@ void handle_cfg_get() {
   doc.clear();
 
   doc["rezim"] = current_mode;
+  doc["cyklovat"] = cycle_modes;
+  doc["cykl_sec"] = cycle_seconds;
   doc["jas"] = jas;
   doc["gamma"] = gamma_cor;
   doc["ignoruj_noc"] = ignore_night;
@@ -342,6 +370,8 @@ void setup() {
 
   jas = myPrefs.getUChar("jas", jas);
   current_mode = myPrefs.getInt("current_mode", current_mode);
+  cycle_modes = myPrefs.getBool("cycle_modes", cycle_modes);
+  cycle_seconds =  myPrefs.getInt("cycle_seconds", cycle_seconds);
   gamma_cor = myPrefs.getBool("gamma_cor", gamma_cor);
   time_off = myPrefs.getInt("time_off", time_off);
   time_on = myPrefs.getInt("time_on", time_on);
@@ -370,6 +400,7 @@ void setup() {
   pixely.show();
 }
 
+static long last_cycle = 0;
 static long lastSec = 0;
 
 // Smycka loop se opakuje stale dokola
@@ -409,6 +440,12 @@ void loop() {
   if (night_active) {
     render_cached_colors();
     night_active = false;
+  }
+
+  if (cycle_modes && millis() - last_cycle >= cycle_seconds * 1000) {
+    last_cycle = millis();
+    cycle_mode();
+    render_cached_colors();
   }
 
   minutes += 24 * 60;
